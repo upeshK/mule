@@ -40,6 +40,18 @@
             <artifactId>mule-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>${javax.jaxb-api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sun</groupId>
+            <artifactId>tools</artifactId>
+            <version>${java.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/pom.xml</systemPath>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>

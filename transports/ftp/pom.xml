@@ -87,6 +87,11 @@
             <artifactId>mule-transport-file</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.sun.activation</groupId>
+            <artifactId>javax.activation</artifactId>
+            <version>${javax.activation.version}</version>
+        </dependency>
 
         <!-- Unit tests -->
         <dependency>

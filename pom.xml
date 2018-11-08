@@ -180,7 +180,11 @@
         <hk2Version>2.3.0-b05</hk2Version>
         <jacksonVersion>1.9.14-MULE-002</jacksonVersion>
         <jackson2Version>2.9.7</jackson2Version>
+        <javax.activation.version>1.2.0</javax.activation.version>
+        <javax.annotation.version>1.3.1</javax.annotation.version>
         <javax.inject.version>1</javax.inject.version>
+        <javax.jaxb-api.version>2.3.0</javax.jaxb-api.version>
+        <javax.jaxws-api.version>2.3.0</javax.jaxws-api.version>
         <javax.transaction.version>1.2</javax.transaction.version>
         <jerseyVersion>2.11</jerseyVersion>
         <javassistVersion>3.7.ga</javassistVersion>
@@ -2068,37 +2072,37 @@
                     </reportPlugins>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>animal-sniffer-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>signature-check</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <signature>
-                        <groupId>org.codehaus.mojo.signature</groupId>
-                        <artifactId>java17</artifactId>
-                        <version>1.0</version>
-                    </signature>
-                    <ignores>
-                        <!-- Some methods were added in Java 8 -->
-                        <ignore>java.security.cert.*</ignore>
+            <!--<plugin>-->
+                <!--<groupId>org.codehaus.mojo</groupId>-->
+                <!--<artifactId>animal-sniffer-maven-plugin</artifactId>-->
+                <!--<executions>-->
+                    <!--<execution>-->
+                        <!--<id>signature-check</id>-->
+                        <!--<phase>verify</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>check</goal>-->
+                        <!--</goals>-->
+                    <!--</execution>-->
+                <!--</executions>-->
+                <!--<configuration>-->
+                    <!--<signature>-->
+                        <!--<groupId>org.codehaus.mojo.signature</groupId>-->
+                        <!--<artifactId>java17</artifactId>-->
+                        <!--<version>1.0</version>-->
+                    <!--</signature>-->
+                    <!--<ignores>-->
+                        <!--&lt;!&ndash; Some methods were added in Java 8 &ndash;&gt;-->
+                        <!--<ignore>java.security.cert.*</ignore>-->
 
-                        <!-- Handler is internal proprietary API and may be removed in a future release -->
-                        <!-- JarURLConnection is internal proprietary API and may be removed in a future release -->
-                        <ignore>sun.net.www.protocol.jar.*</ignore>
+                        <!--&lt;!&ndash; Handler is internal proprietary API and may be removed in a future release &ndash;&gt;-->
+                        <!--&lt;!&ndash; JarURLConnection is internal proprietary API and may be removed in a future release &ndash;&gt;-->
+                        <!--<ignore>sun.net.www.protocol.jar.*</ignore>-->
 
-                        <ignore>sun.misc.Unsafe</ignore>
+                        <!--<ignore>sun.misc.Unsafe</ignore>-->
 
-                    </ignores>
-                </configuration>
-            </plugin>
+                    <!--</ignores>-->
+                <!--</configuration>-->
+            <!--</plugin>-->
         </plugins>
     </build>
 

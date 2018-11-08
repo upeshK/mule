@@ -84,6 +84,23 @@
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.sun.activation</groupId>
+                        <artifactId>javax.activation</artifactId>
+                        <version>${javax.activation.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.mule.glassfish.jaxb</groupId>
+                        <artifactId>jaxb-runtime</artifactId>
+                        <version>${javaXmlBindVersion}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.mule.glassfish.jaxb</groupId>
+                        <artifactId>jaxb-xjc</artifactId>
+                        <version>${javaXmlBindVersion}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
