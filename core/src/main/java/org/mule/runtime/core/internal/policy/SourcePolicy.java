@@ -28,9 +28,11 @@ public interface SourcePolicy {
    *        execute the successful or failure response function of the source.
    * @param messageSourceResponseParametersProcessor processor to generate the response and error response parameters of the
    *        source.
+   * @param flowExecutionProcessor
    * @return the result of processing the {@code event} through the policy chain.
    */
   Publisher<Either<SourcePolicyFailureResult, SourcePolicySuccessResult>> process(CoreEvent sourceEvent,
-                                                                                  MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor);
+                                                                                  MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor,
+                                                                                  Processor flowExecutionProcessor);
 
 }

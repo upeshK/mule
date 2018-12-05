@@ -149,12 +149,12 @@ public class ModuleFlowProcessingPhase
       final ComponentLocation sourceLocation = messageSource.getLocation();
       final Consumer<Either<MessagingException, CoreEvent>> terminateConsumer = getTerminateConsumer(messageSource, template);
       final CompletableFuture<Void> responseCompletion = new CompletableFuture<>();
-      final CoreEvent templateEvent = createEvent(template, sourceLocation, responseCompletion, flowConstruct);
+      final CoreEvent templateEvent = createEvent(template, messageSource, responseCompletion, flowConstruct);
 
       try {
         FlowProcessor flowExecutionProcessor = new FlowProcessor(template, flowConstruct);
         final SourcePolicy policy =
-            policyManager.createSourcePolicyInstance(messageSource, templateEvent, flowExecutionProcessor, template);
+            policyManager.createSourcePolicyInstance(messageSource, templateEvent, template);
         final PhaseContext phaseContext =
             new PhaseContext(template, messageProcessContext, phaseResultNotifier, terminateConsumer);
 
@@ -162,7 +162,7 @@ public class ModuleFlowProcessingPhase
             .doOnNext(onMessageReceived(template, messageProcessContext, flowConstruct))
             // Process policy and in turn flow emitting Either<SourcePolicyFailureResult,SourcePolicySuccessResult>> when
             // complete.
-            .flatMap(request -> from(policy.process(request, template))
+            .flatMap(request -> from(policy.process(request, template, flowExecutionProcessor))
                 // Perform processing of result by sending success or error response and handle errors that occur.
                 // Returns Publisher<Void> to signal when this is complete or if it failed.
                 .flatMap(policyResult -> policyResult.reduce(policyFailure(phaseContext, flowConstruct, messageSource),
@@ -306,7 +306,7 @@ public class ModuleFlowProcessingPhase
     }));
   }
 
-  private CoreEvent createEvent(ModuleFlowProcessingPhaseTemplate template, ComponentLocation sourceLocation,
+  private CoreEvent createEvent(ModuleFlowProcessingPhaseTemplate template, MessageSource source,
                                 CompletableFuture responseCompletion, FlowConstruct flowConstruct) {
     Message message = template.getMessage();
     Builder eventBuilder;
@@ -314,14 +314,16 @@ public class ModuleFlowProcessingPhase
     if (message.getPayload().getValue() instanceof SourceResultAdapter) {
       SourceResultAdapter adapter = (SourceResultAdapter) message.getPayload().getValue();
       eventBuilder =
-          createEventBuilder(sourceLocation, responseCompletion, flowConstruct, adapter.getCorrelationId().orElse(null), message);
+          createEventBuilder(source.getLocation(), responseCompletion, flowConstruct, adapter.getCorrelationId().orElse(null),
+                             message);
 
       return eventBuilder.message(eventCtx -> {
         final Result<?, ?> result = adapter.getResult();
         final Object resultValue = result.getOutput();
 
+        Message eventMessage;
         if (resultValue instanceof Collection && adapter.isCollection()) {
-          return toMessage(Result.<Collection<Message>, TypedValue>builder()
+          eventMessage = toMessage(Result.<Collection<Message>, TypedValue>builder()
               .output(toMessageCollection(new MediaTypeDecoratedResultCollection((Collection<Result>) resultValue,
                                                                                  adapter.getPayloadMediaTypeResolver()),
                                           adapter.getCursorProviderFactory(),
@@ -329,14 +331,22 @@ public class ModuleFlowProcessingPhase
               .mediaType(result.getMediaType().orElse(ANY))
               .build());
         } else {
-          return toMessage(result, adapter.getMediaType(), adapter.getCursorProviderFactory(),
-                           ((BaseEventContext) eventCtx).getRootContext());
+          eventMessage = toMessage(result, adapter.getMediaType(), adapter.getCursorProviderFactory(),
+                                   ((BaseEventContext) eventCtx).getRootContext());
         }
 
+        eventBuilder.addInternalParameter("policy.sourcePointcutParameters",
+                                          policyManager.createSourcePointcutParameters(source, eventMessage.getAttributes()));
+
+        return eventMessage;
       }).build();
+    } else {
+      eventBuilder = createEventBuilder(source.getLocation(), responseCompletion, flowConstruct, null, message)
+          .addInternalParameter("policy.sourcePointcutParameters",
+                                policyManager.createSourcePointcutParameters(source, message.getAttributes()));
     }
 
-    return createEventBuilder(sourceLocation, responseCompletion, flowConstruct, null, message).build();
+    return eventBuilder.build();
   }
 
   private Builder createEventBuilder(ComponentLocation sourceLocation, CompletableFuture responseCompletion,

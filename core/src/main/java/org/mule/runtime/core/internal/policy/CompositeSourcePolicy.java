@@ -39,11 +39,11 @@ import java.util.function.Supplier;
  * @since 4.0
  */
 public class CompositeSourcePolicy extends
-    AbstractCompositePolicy<SourcePolicyParametersTransformer, MessageSourceResponseParametersProcessor> implements SourcePolicy {
+    AbstractCompositePolicy<SourcePolicyParametersTransformer, MessageSourceResponseParametersProcessor, Processor>
+    implements SourcePolicy {
 
   private static final Logger LOGGER = getLogger(CompositeSourcePolicy.class);
 
-  private final Processor flowExecutionProcessor;
   private final SourcePolicyProcessorFactory sourcePolicyProcessorFactory;
   private Map<String, Object> originalResponseParameters;
   private Map<String, Object> originalFailureResponseParameters;
@@ -60,11 +60,10 @@ public class CompositeSourcePolicy extends
    */
   public CompositeSourcePolicy(List<Policy> parameterizedPolicies,
                                Optional<SourcePolicyParametersTransformer> sourcePolicyParametersTransformer,
-                               SourcePolicyProcessorFactory sourcePolicyProcessorFactory, Processor flowExecutionProcessor,
+                               SourcePolicyProcessorFactory sourcePolicyProcessorFactory,
                                MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor) {
     super(parameterizedPolicies, sourcePolicyParametersTransformer, messageSourceResponseParametersProcessor);
     this.sourcePolicyProcessorFactory = sourcePolicyProcessorFactory;
-    this.flowExecutionProcessor = flowExecutionProcessor;
   }
 
   /**
@@ -85,7 +84,8 @@ public class CompositeSourcePolicy extends
    */
   @Override
   protected Publisher<CoreEvent> processNextOperation(CoreEvent event,
-                                                      MessageSourceResponseParametersProcessor parametersProcessor) {
+                                                      MessageSourceResponseParametersProcessor parametersProcessor,
+                                                      Processor flowExecutionProcessor) {
     return just(event)
         .transform(flowExecutionProcessor)
         .map(flowExecutionResponse -> {
@@ -147,8 +147,9 @@ public class CompositeSourcePolicy extends
    */
   @Override
   public Publisher<Either<SourcePolicyFailureResult, SourcePolicySuccessResult>> process(CoreEvent sourceEvent,
-                                                                                         MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor) {
-    return from(MessageProcessors.process(sourceEvent, getPolicyProcessor()))
+                                                                                         MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor,
+                                                                                         Processor flowExecutionProcessor) {
+    return from(MessageProcessors.process(sourceEvent, getPolicyProcessor(flowExecutionProcessor)))
         .<Either<SourcePolicyFailureResult, SourcePolicySuccessResult>>map(policiesResultEvent -> {
           Supplier<Map<String, Object>> responseParameters = () -> getParametersTransformer()
               .map(parametersTransformer -> concatMaps(originalResponseParameters, parametersTransformer

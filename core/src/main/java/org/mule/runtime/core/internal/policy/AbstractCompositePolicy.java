@@ -32,7 +32,7 @@ import java.util.Optional;
  *
  * @since 4.0
  */
-public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersProcessor> {
+public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersProcessor, Subject> {
 
   private final List<Policy> parameterizedPolicies;
   private final Optional<ParametersTransformer> parametersTransformer;
@@ -63,8 +63,8 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * in the chain until the finally policy it's executed in which case then next operation of it, it will be the operation
    * execution.
    */
-  public final ReactiveProcessor getPolicyProcessor() {
-    return new AbstractCompositePolicy.NextOperationCall();
+  public final ReactiveProcessor getPolicyProcessor(Subject flowExecutionProcessor) {
+    return new AbstractCompositePolicy.NextOperationCall(flowExecutionProcessor);
   }
 
   /**
@@ -88,7 +88,8 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * @return the event to use for processing the after phase of the policy
    * @throws MuleException if there's an error executing processing the next operation.
    */
-  protected abstract Publisher<CoreEvent> processNextOperation(CoreEvent event, ParametersProcessor parametersProcessor);
+  protected abstract Publisher<CoreEvent> processNextOperation(CoreEvent event, ParametersProcessor parametersProcessor,
+                                                               Subject flowExecutionProcessor);
 
   /**
    * Template method for executing a policy.
@@ -107,7 +108,12 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    */
   public class NextOperationCall extends AbstractComponent implements Processor {
 
+    private final Subject flowExecutionProcessor;
     private int index = 0;
+
+    public NextOperationCall(Subject flowExecutionProcessor) {
+      this.flowExecutionProcessor = flowExecutionProcessor;
+    }
 
     @Override
     public CoreEvent process(CoreEvent event) throws MuleException {
@@ -120,7 +126,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
           .flatMap(event -> {
             checkState(index <= parameterizedPolicies.size(), "composite policy index is greater that the number of policies.");
             if (index == parameterizedPolicies.size()) {
-              return from(processNextOperation(event, getParametersProcessor()));
+              return from(processNextOperation(event, getParametersProcessor(), flowExecutionProcessor));
             }
             return from(processPolicy(parameterizedPolicies.get(index++), this, event));
           })
