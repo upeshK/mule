@@ -8,6 +8,7 @@ package org.mule.runtime.core.internal.policy;
 
 import static org.mule.runtime.core.api.functional.Either.left;
 import static org.mule.runtime.core.api.functional.Either.right;
+import static org.mule.runtime.core.internal.policy.PolicyPointcutParametersManager.POLICY_SOURCE_POINTCUT_PARAMETERS;
 import static org.mule.runtime.core.privileged.processor.MessageProcessors.process;
 import static reactor.core.publisher.Mono.from;
 import static reactor.core.publisher.Mono.just;
@@ -28,6 +29,7 @@ import org.mule.runtime.core.api.policy.SourcePolicyParametersTransformer;
 import org.mule.runtime.core.internal.context.MuleContextWithRegistry;
 import org.mule.runtime.core.internal.exception.MessagingException;
 import org.mule.runtime.core.internal.message.InternalEvent;
+import org.mule.runtime.core.internal.message.InternalEvent.Builder;
 import org.mule.runtime.core.internal.registry.MuleRegistry;
 import org.mule.runtime.policy.api.OperationPolicyPointcutParametersFactory;
 import org.mule.runtime.policy.api.PolicyPointcutParameters;
@@ -82,7 +84,7 @@ public class DefaultPolicyManager implements PolicyManager, Initialisable {
                                                  MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor) {
     List<Policy> parameterizedPolicies =
         policyProvider.findSourceParameterizedPolicies((PolicyPointcutParameters) ((InternalEvent) sourceEvent)
-            .getInternalParameters().get("policy.sourcePointcutParameters"));
+            .getInternalParameters().get(POLICY_SOURCE_POINTCUT_PARAMETERS));
     if (parameterizedPolicies.isEmpty()) {
       return NO_SOURCE_POLICY_PROCESSOR;
     } else {
@@ -95,8 +97,12 @@ public class DefaultPolicyManager implements PolicyManager, Initialisable {
   }
 
   @Override
-  public PolicyPointcutParameters createSourcePointcutParameters(Component source, TypedValue<?> attributes) {
-    return policyPointcutParametersManager.createSourcePointcutParameters(source, attributes);
+  public PolicyPointcutParameters addSourcePointcutParametersIntoEvent(Component source, TypedValue<?> attributes,
+                                                                       Builder eventBuilder) {
+    final PolicyPointcutParameters sourcePolicyParams =
+        policyPointcutParametersManager.createSourcePointcutParameters(source, attributes);
+    eventBuilder.addInternalParameter(POLICY_SOURCE_POINTCUT_PARAMETERS, sourcePolicyParams);
+    return sourcePolicyParams;
   }
 
   @Override

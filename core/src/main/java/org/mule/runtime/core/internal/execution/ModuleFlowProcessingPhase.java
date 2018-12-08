@@ -146,7 +146,6 @@ public class ModuleFlowProcessingPhase
     try {
       final MessageSource messageSource = messageProcessContext.getMessageSource();
       final FlowConstruct flowConstruct = (FlowConstruct) componentLocator.find(messageSource.getRootContainerLocation()).get();
-      final ComponentLocation sourceLocation = messageSource.getLocation();
       final Consumer<Either<MessagingException, CoreEvent>> terminateConsumer = getTerminateConsumer(messageSource, template);
       final CompletableFuture<Void> responseCompletion = new CompletableFuture<>();
       final CoreEvent templateEvent = createEvent(template, messageSource, responseCompletion, flowConstruct);
@@ -335,15 +334,12 @@ public class ModuleFlowProcessingPhase
                                    ((BaseEventContext) eventCtx).getRootContext());
         }
 
-        eventBuilder.addInternalParameter("policy.sourcePointcutParameters",
-                                          policyManager.createSourcePointcutParameters(source, eventMessage.getAttributes()));
-
+        policyManager.addSourcePointcutParametersIntoEvent(source, eventMessage.getAttributes(), eventBuilder);
         return eventMessage;
       }).build();
     } else {
-      eventBuilder = createEventBuilder(source.getLocation(), responseCompletion, flowConstruct, null, message)
-          .addInternalParameter("policy.sourcePointcutParameters",
-                                policyManager.createSourcePointcutParameters(source, message.getAttributes()));
+      eventBuilder = createEventBuilder(source.getLocation(), responseCompletion, flowConstruct, null, message);
+      policyManager.addSourcePointcutParametersIntoEvent(source, message.getAttributes(), eventBuilder);
     }
 
     return eventBuilder.build();

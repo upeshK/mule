@@ -27,18 +27,15 @@ import java.util.Map;
  */
 public class PolicyPointcutParametersManager {
 
+  static final String POLICY_SOURCE_POINTCUT_PARAMETERS = "policy.sourcePointcutParameters";
+
   private final Collection<SourcePolicyPointcutParametersFactory> sourcePointcutFactories;
   private final Collection<OperationPolicyPointcutParametersFactory> operationPointcutFactories;
-
-  // private final Cache<String, PolicyPointcutParameters> sourceParametersMap;
 
   public PolicyPointcutParametersManager(Collection<SourcePolicyPointcutParametersFactory> sourcePointcutFactories,
                                          Collection<OperationPolicyPointcutParametersFactory> operationPointcutFactories) {
     this.sourcePointcutFactories = sourcePointcutFactories;
     this.operationPointcutFactories = operationPointcutFactories;
-    // All this to get just the name of the source flow? (ApiPointcutAdapter)
-    // this.sourceParametersMap = Caffeine.newBuilder().build();
-    // new ConcurrentHashMap<>();
   }
 
   /**
@@ -62,18 +59,8 @@ public class PolicyPointcutParametersManager {
       }
     }
 
-    PolicyPointcutParameters sourcePointcutParameters =
-        found != null ? found.createPolicyPointcutParameters(source, attributes)
-            : new PolicyPointcutParameters(source);
-
-    // All this to get just the name of the source flow? (ApiPointcutAdapter)
-    // String correlationId = event.getContext().getCorrelationId();
-    //
-    // sourceParametersMap.put(correlationId, sourcePointcutParameters);
-    // ((BaseEventContext) event.getContext()).getRootContext()
-    // .onTerminated((e, t) -> sourceParametersMap.invalidate(correlationId));
-
-    return sourcePointcutParameters;
+    return found != null ? found.createPolicyPointcutParameters(source, attributes)
+        : new PolicyPointcutParameters(source);
   }
 
   /**
@@ -89,11 +76,6 @@ public class PolicyPointcutParametersManager {
                                                                     Map<String, Object> operationParameters) {
     ComponentIdentifier operationIdentifier = operation.getLocation().getComponentIdentifier().getIdentifier();
 
-    // All this to get just the name of the source flow? (ApiPointcutAdapter)
-    // PolicyPointcutParameters sourceParameters = sourceParametersMap.getIfPresent(event.getContext().getCorrelationId());
-    PolicyPointcutParameters sourceParameters =
-        (PolicyPointcutParameters) ((InternalEvent) event).getInternalParameters().get("policy.sourcePointcutParameters");
-
     OperationPolicyPointcutParametersFactory found = null;
     for (OperationPolicyPointcutParametersFactory factory : operationPointcutFactories) {
       if (factory.supportsOperationIdentifier(operationIdentifier)) {
@@ -103,6 +85,9 @@ public class PolicyPointcutParametersManager {
         found = factory;
       }
     }
+
+    PolicyPointcutParameters sourceParameters =
+        (PolicyPointcutParameters) ((InternalEvent) event).getInternalParameters().get(POLICY_SOURCE_POINTCUT_PARAMETERS);
 
     return found != null ? found.createPolicyPointcutParameters(operation, operationParameters, sourceParameters)
         : new PolicyPointcutParameters(operation, sourceParameters);
