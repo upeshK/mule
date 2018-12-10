@@ -279,7 +279,7 @@ public class PolicyPointcutParametersManagerTestCase extends AbstractMuleTestCas
     OperationPolicyPointcutParametersFactory factory = mockOperationFactory(true, sourceParameters);
     PolicyPointcutParameters parameters = mock(PolicyPointcutParameters.class);
     when(factory.createPolicyPointcutParameters(any(), any(), any())).thenThrow(new AbstractMethodError());
-    when(factory.createPolicyPointcutParameters(component, operationParameters, sourceParameters)).thenReturn(parameters);
+    when(factory.createPolicyPointcutParameters(component, operationParameters)).thenReturn(parameters);
     operationPointcutFactories.add(factory);
 
     PolicyPointcutParameters returnedParameters =
@@ -288,7 +288,7 @@ public class PolicyPointcutParametersManagerTestCase extends AbstractMuleTestCas
     assertThat(returnedParameters, is(parameters));
     verify(factory).supportsOperationIdentifier(identifier);
     verify(factory).createPolicyPointcutParameters(any(), any(), any());
-    verify(factory).createPolicyPointcutParameters(component, operationParameters, sourceParameters);
+    verify(factory).createPolicyPointcutParameters(component, operationParameters);
   }
 
   private void mockEvent() {

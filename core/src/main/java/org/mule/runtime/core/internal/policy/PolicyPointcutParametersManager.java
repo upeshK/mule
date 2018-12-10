@@ -89,8 +89,15 @@ public class PolicyPointcutParametersManager {
     PolicyPointcutParameters sourceParameters =
         (PolicyPointcutParameters) ((InternalEvent) event).getInternalParameters().get(POLICY_SOURCE_POINTCUT_PARAMETERS);
 
-    return found != null ? found.createPolicyPointcutParameters(operation, operationParameters, sourceParameters)
-        : new PolicyPointcutParameters(operation, sourceParameters);
+    if (found != null) {
+      try {
+        return found.createPolicyPointcutParameters(operation, operationParameters, sourceParameters);
+      } catch (AbstractMethodError error) {
+        return found.createPolicyPointcutParameters(operation, operationParameters);
+      }
+    } else {
+      return new PolicyPointcutParameters(operation, sourceParameters);
+    }
   }
 
   private void throwMoreThanOneFactoryFoundException(ComponentIdentifier sourceIdentifier, Class factoryClass) {
