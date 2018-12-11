@@ -10,7 +10,6 @@ import static java.util.Optional.empty;
 import static org.mule.runtime.core.privileged.processor.MessageProcessors.processWithChildContext;
 import static reactor.core.publisher.Mono.error;
 import static reactor.core.publisher.Mono.from;
-import static reactor.core.publisher.Mono.just;
 
 import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.api.policy.OperationPolicyParametersTransformer;
@@ -67,18 +66,23 @@ public class CompositeOperationPolicy extends
    * @param event the event to execute the operation.
    */
   @Override
-  protected Publisher<CoreEvent> processNextOperation(CoreEvent event, OperationParametersProcessor parametersProcessor,
+  protected Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
+                                                      OperationParametersProcessor parametersProcessor,
                                                       OperationExecutionFunction operationExecutionFunction) {
-    Map<String, Object> parametersMap = new HashMap<>();
-    try {
-      parametersMap.putAll(getParametersProcessor().getOperationParameters());
-    } catch (Exception e) {
-      return error(e);
-    }
-    if (getParametersTransformer().isPresent()) {
-      parametersMap.putAll(getParametersTransformer().get().fromMessageToParameters(event.getMessage()));
-    }
-    return from(operationExecutionFunction.execute(parametersMap, event))
+    return from(eventPub)
+        .flatMap(event -> {
+          Map<String, Object> parametersMap = new HashMap<>();
+          try {
+            parametersMap.putAll(getParametersProcessor().getOperationParameters());
+          } catch (Exception e) {
+            return error(e);
+          }
+          if (getParametersTransformer().isPresent()) {
+            parametersMap.putAll(getParametersTransformer().get().fromMessageToParameters(event.getMessage()));
+          }
+
+          return from(operationExecutionFunction.execute(parametersMap, event));
+        })
         .doOnNext(response -> this.nextOperationResponse = response);
   }
 
@@ -91,14 +95,12 @@ public class CompositeOperationPolicy extends
    * @param event the event to use to execute the policy chain.
    */
   @Override
-  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, CoreEvent event) {
-    if (nextOperationResponse == null) {
-      nextOperationResponse = event;
-    }
-
+  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, Publisher<CoreEvent> eventPub) {
     Processor defaultOperationPolicy =
         operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor);
-    return just(event).transform(defaultOperationPolicy)
+    return from(eventPub)
+        .doOnNext(response -> this.nextOperationResponse = response)
+        .transform(defaultOperationPolicy)
         .map(policyResponse -> {
 
           if (policy.getPolicyChain().isPropagateMessageTransformations()) {

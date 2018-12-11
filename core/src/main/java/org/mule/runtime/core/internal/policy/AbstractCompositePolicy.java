@@ -24,6 +24,8 @@ import org.reactivestreams.Publisher;
 import java.util.List;
 import java.util.Optional;
 
+import reactor.core.publisher.Mono;
+
 /**
  * Abstract implementation that performs the chaining of a set of policies and the {@link Processor} being intercepted.
  *
@@ -88,7 +90,8 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * @return the event to use for processing the after phase of the policy
    * @throws MuleException if there's an error executing processing the next operation.
    */
-  protected abstract Publisher<CoreEvent> processNextOperation(CoreEvent event, ParametersProcessor parametersProcessor,
+  protected abstract Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
+                                                               ParametersProcessor parametersProcessor,
                                                                Subject flowExecutionProcessor);
 
   /**
@@ -101,7 +104,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * @return the result to use for the next policy in the chain.
    * @throws Exception if the execution of the policy fails.
    */
-  protected abstract Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, CoreEvent event);
+  protected abstract Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, Publisher<CoreEvent> eventPub);
 
   /**
    * Inner class that implements the actually chaining of policies.
@@ -122,13 +125,24 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
 
     @Override
     public Publisher<CoreEvent> apply(Publisher<CoreEvent> publisher) {
-      return from(publisher)
-          .flatMap(event -> {
+      Mono<CoreEvent> basePublisher = from(publisher);
+
+      //      basePublisher = basePublisher.flatMap(event -> from(processNextOperation(event, getParametersProcessor(), flowExecutionProcessor)))
+      //          .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
+      //
+      //
+      //      for (Policy policy : parameterizedPolicies) {
+      //        basePublisher = basePublisher.flatMap(event -> from(processPolicy(policy, this, event)))
+      //            .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
+      //      }
+
+      return basePublisher
+          .compose(eventPub -> {
             checkState(index <= parameterizedPolicies.size(), "composite policy index is greater that the number of policies.");
             if (index == parameterizedPolicies.size()) {
-              return from(processNextOperation(event, getParametersProcessor(), flowExecutionProcessor));
+              return processNextOperation(eventPub, getParametersProcessor(), flowExecutionProcessor);
             }
-            return from(processPolicy(parameterizedPolicies.get(index++), this, event));
+            return processPolicy(parameterizedPolicies.get(index++), this, eventPub);
           })
           .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
     }

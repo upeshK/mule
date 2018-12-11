@@ -83,21 +83,20 @@ public class CompositeSourcePolicy extends
    * {@link MessagingException} to signal that the failure was through the the flow exception and not the policy logic.
    */
   @Override
-  protected Publisher<CoreEvent> processNextOperation(CoreEvent event,
+  protected Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
                                                       MessageSourceResponseParametersProcessor parametersProcessor,
                                                       Processor flowExecutionProcessor) {
-    return just(event)
-        .transform(flowExecutionProcessor)
-        .map(flowExecutionResponse -> {
-          originalResponseParameters =
-              parametersProcessor.getSuccessfulExecutionResponseParametersFunction().apply(flowExecutionResponse);
-          Message message = getParametersTransformer()
-              .map(parametersTransformer -> parametersTransformer
-                  .fromSuccessResponseParametersToMessage(originalResponseParameters))
-              .orElseGet(flowExecutionResponse::getMessage);
-          return CoreEvent.builder(event).message(message).build();
-
-        })
+    return from(eventPub)
+        .flatMap(event -> from(flowExecutionProcessor.apply(just(event)))
+            .map(flowExecutionResponse -> {
+              originalResponseParameters =
+                  parametersProcessor.getSuccessfulExecutionResponseParametersFunction().apply(flowExecutionResponse);
+              Message message = getParametersTransformer()
+                  .map(parametersTransformer -> parametersTransformer
+                      .fromSuccessResponseParametersToMessage(originalResponseParameters))
+                  .orElseGet(flowExecutionResponse::getMessage);
+              return CoreEvent.builder(event).message(message).build();
+            }))
         .onErrorMap(MessagingException.class, messagingException -> {
           originalFailureResponseParameters =
               parametersProcessor.getFailedExecutionResponseParametersFunction().apply(messagingException.getEvent());
@@ -123,9 +122,9 @@ public class CompositeSourcePolicy extends
    * wrapped policy / flow.
    */
   @Override
-  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, CoreEvent event) {
-    return just(event)
-        .doOnNext(s -> logEvent(getCoreEventId(event), getPolicyName(policy), () -> getCoreEventAttributesAsString(event),
+  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, Publisher<CoreEvent> eventPub) {
+    return from(eventPub)
+        .doOnNext(s -> logEvent(getCoreEventId(s), getPolicyName(policy), () -> getCoreEventAttributesAsString(s),
                                 "Starting Policy "))
         .transform(sourcePolicyProcessorFactory.createSourcePolicy(policy, nextProcessor))
         .doOnNext(responseEvent -> logEvent(getCoreEventId(responseEvent), getPolicyName(policy),
@@ -194,7 +193,7 @@ public class CompositeSourcePolicy extends
 
   private void logEvent(String eventId, String policyName, Supplier<String> message, String startingMessage) {
     if (LOGGER.isTraceEnabled()) {
-      //TODO Remove event id when first policy generates it. MULE-14455
+      // TODO Remove event id when first policy generates it. MULE-14455
       LOGGER.trace("Event Id: " + eventId + ".\n" + startingMessage + policyName + "\n" + message.get());
     }
   }
