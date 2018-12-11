@@ -13,12 +13,15 @@ import static org.slf4j.LoggerFactory.getLogger;
 import static reactor.core.publisher.Mono.from;
 import static reactor.core.publisher.Mono.just;
 
+import org.mule.runtime.api.exception.DefaultMuleException;
+import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.api.message.Message;
 import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.api.functional.Either;
 import org.mule.runtime.core.api.policy.Policy;
 import org.mule.runtime.core.api.policy.SourcePolicyParametersTransformer;
 import org.mule.runtime.core.api.processor.Processor;
+import org.mule.runtime.core.api.processor.ReactiveProcessor;
 import org.mule.runtime.core.internal.exception.MessagingException;
 import org.mule.runtime.core.privileged.processor.MessageProcessors;
 
@@ -61,8 +64,10 @@ public class CompositeSourcePolicy extends
   public CompositeSourcePolicy(List<Policy> parameterizedPolicies,
                                Optional<SourcePolicyParametersTransformer> sourcePolicyParametersTransformer,
                                SourcePolicyProcessorFactory sourcePolicyProcessorFactory,
+                               Processor flowExecutionProcessor,
                                MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor) {
-    super(parameterizedPolicies, sourcePolicyParametersTransformer, messageSourceResponseParametersProcessor);
+    super(parameterizedPolicies, sourcePolicyParametersTransformer, messageSourceResponseParametersProcessor,
+          flowExecutionProcessor);
     this.sourcePolicyProcessorFactory = sourcePolicyProcessorFactory;
   }
 
@@ -114,7 +119,8 @@ public class CompositeSourcePolicy extends
           }
           return flowExecutionException;
         })
-        .doOnError(e -> !(e instanceof MessagingException), e -> LOGGER.error(e.getMessage(), e));
+        .doOnError(e -> !(e instanceof MessagingException), e -> LOGGER.error(e.getMessage(), e))
+        .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
   }
 
   /**
@@ -122,13 +128,14 @@ public class CompositeSourcePolicy extends
    * wrapped policy / flow.
    */
   @Override
-  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, Publisher<CoreEvent> eventPub) {
+  protected Publisher<CoreEvent> processPolicy(Policy policy, ReactiveProcessor nextProcessor, Publisher<CoreEvent> eventPub) {
     return from(eventPub)
         .doOnNext(s -> logEvent(getCoreEventId(s), getPolicyName(policy), () -> getCoreEventAttributesAsString(s),
                                 "Starting Policy "))
         .transform(sourcePolicyProcessorFactory.createSourcePolicy(policy, nextProcessor))
         .doOnNext(responseEvent -> logEvent(getCoreEventId(responseEvent), getPolicyName(policy),
-                                            () -> getCoreEventAttributesAsString(responseEvent), "At the end of the Policy "));
+                                            () -> getCoreEventAttributesAsString(responseEvent), "At the end of the Policy "))
+        .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
   }
 
   /**
@@ -146,9 +153,8 @@ public class CompositeSourcePolicy extends
    */
   @Override
   public Publisher<Either<SourcePolicyFailureResult, SourcePolicySuccessResult>> process(CoreEvent sourceEvent,
-                                                                                         MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor,
-                                                                                         Processor flowExecutionProcessor) {
-    return from(MessageProcessors.process(sourceEvent, getPolicyProcessor(flowExecutionProcessor)))
+                                                                                         MessageSourceResponseParametersProcessor messageSourceResponseParametersProcessor) {
+    return from(MessageProcessors.process(sourceEvent, getExecutionProcessor()))
         .<Either<SourcePolicyFailureResult, SourcePolicySuccessResult>>map(policiesResultEvent -> {
           Supplier<Map<String, Object>> responseParameters = () -> getParametersTransformer()
               .map(parametersTransformer -> concatMaps(originalResponseParameters, parametersTransformer

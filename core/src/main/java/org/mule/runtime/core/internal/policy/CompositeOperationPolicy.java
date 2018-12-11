@@ -11,10 +11,12 @@ import static org.mule.runtime.core.privileged.processor.MessageProcessors.proce
 import static reactor.core.publisher.Mono.error;
 import static reactor.core.publisher.Mono.from;
 
+import org.mule.runtime.api.exception.DefaultMuleException;
+import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.api.policy.OperationPolicyParametersTransformer;
 import org.mule.runtime.core.api.policy.Policy;
-import org.mule.runtime.core.api.processor.Processor;
+import org.mule.runtime.core.api.processor.ReactiveProcessor;
 
 import org.reactivestreams.Publisher;
 
@@ -54,8 +56,9 @@ public class CompositeOperationPolicy extends
   public CompositeOperationPolicy(List<Policy> parameterizedPolicies,
                                   Optional<OperationPolicyParametersTransformer> operationPolicyParametersTransformer,
                                   OperationPolicyProcessorFactory operationPolicyProcessorFactory,
-                                  OperationParametersProcessor operationParametersProcessor) {
-    super(parameterizedPolicies, operationPolicyParametersTransformer, operationParametersProcessor);
+                                  OperationParametersProcessor operationParametersProcessor,
+                                  OperationExecutionFunction operationExecutionFunction) {
+    super(parameterizedPolicies, operationPolicyParametersTransformer, operationParametersProcessor, operationExecutionFunction);
     this.operationPolicyProcessorFactory = operationPolicyProcessorFactory;
   }
 
@@ -83,7 +86,8 @@ public class CompositeOperationPolicy extends
 
           return from(operationExecutionFunction.execute(parametersMap, event));
         })
-        .doOnNext(response -> this.nextOperationResponse = response);
+        .doOnNext(response -> this.nextOperationResponse = response)
+        .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
   }
 
   /**
@@ -95,12 +99,10 @@ public class CompositeOperationPolicy extends
    * @param event the event to use to execute the policy chain.
    */
   @Override
-  protected Publisher<CoreEvent> processPolicy(Policy policy, Processor nextProcessor, Publisher<CoreEvent> eventPub) {
-    Processor defaultOperationPolicy =
-        operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor);
+  protected Publisher<CoreEvent> processPolicy(Policy policy, ReactiveProcessor nextProcessor, Publisher<CoreEvent> eventPub) {
     return from(eventPub)
         .doOnNext(response -> this.nextOperationResponse = response)
-        .transform(defaultOperationPolicy)
+        .transform(operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor))
         .map(policyResponse -> {
 
           if (policy.getPolicyChain().isPropagateMessageTransformations()) {
@@ -109,19 +111,19 @@ public class CompositeOperationPolicy extends
           }
 
           return nextOperationResponse;
-        });
+        })
+        .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
   }
 
   @Override
-  public Publisher<CoreEvent> process(CoreEvent operationEvent, OperationParametersProcessor parametersProcessor,
-                                      OperationExecutionFunction operationExecutionFunction) {
+  public Publisher<CoreEvent> process(CoreEvent operationEvent, OperationParametersProcessor parametersProcessor) {
     try {
       if (getParametersTransformer().isPresent()) {
         return processWithChildContext(CoreEvent.builder(operationEvent)
             .message(getParametersTransformer().get().fromParametersToMessage(parametersProcessor.getOperationParameters()))
-            .build(), getPolicyProcessor(operationExecutionFunction), empty());
+            .build(), getExecutionProcessor(), empty());
       } else {
-        return processWithChildContext(operationEvent, getPolicyProcessor(operationExecutionFunction), empty());
+        return processWithChildContext(operationEvent, getExecutionProcessor(), empty());
       }
     } catch (Exception e) {
       return error(e);
