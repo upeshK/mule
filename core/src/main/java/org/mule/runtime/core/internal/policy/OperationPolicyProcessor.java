@@ -102,6 +102,10 @@ public class OperationPolicyProcessor implements Processor {
                                                    PrivilegedEvent policyEvent) {
 
     PolicyChain policyChain = policy.getPolicyChain();
+
+    // policyChain.isPropagateMessageTransformations();
+
+
     policyChain.onChainError(t -> manageError(policyStateId, operationEvent, (MessagingException) t));
 
     return just(policyEvent)

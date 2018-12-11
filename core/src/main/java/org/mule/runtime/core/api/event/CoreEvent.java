@@ -221,4 +221,6 @@ public interface CoreEvent extends Serializable, Event {
     }
   }
 
+  CoreEvent getActualResponse();
+
 }

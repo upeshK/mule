@@ -32,6 +32,7 @@ import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.api.policy.OperationPolicyParametersTransformer;
 import org.mule.runtime.core.api.policy.Policy;
 import org.mule.runtime.core.api.processor.Processor;
+import org.mule.runtime.core.api.processor.ReactiveProcessor;
 import org.mule.tck.junit4.AbstractMuleTestCase;
 
 import org.junit.Before;
@@ -79,15 +80,17 @@ public class CompositeOperationPolicyTestCase extends AbstractMuleTestCase {
         .thenReturn(secondPolicyOperationPolicyProcessor);
     when(operationPolicyProcessorFactory.createOperationPolicy(same(firstPolicy), any())).thenAnswer(policyFactoryInvocation -> {
       when(firstPolicyOperationPolicyProcessor.apply(any())).thenAnswer(policyProcessorInvocation -> {
-        just(initialEvent).transform((Processor) policyFactoryInvocation.getArguments()[1]).block();
-        return just(firstPolicyProcessorResultEvent);
+        return just(initialEvent).transform((ReactiveProcessor) policyFactoryInvocation.getArguments()[1]);
+        // just(initialEvent).transform((ReactiveProcessor) policyFactoryInvocation.getArguments()[1]).block();
+        // return just(firstPolicyProcessorResultEvent);
       });
       return firstPolicyOperationPolicyProcessor;
     });
     when(operationPolicyProcessorFactory.createOperationPolicy(same(secondPolicy), any())).thenAnswer(policyFactoryInvocation -> {
       when(secondPolicyOperationPolicyProcessor.apply(any())).thenAnswer(policyProcessorInvocation -> {
-        just(initialEvent).transform((Processor) policyFactoryInvocation.getArguments()[1]).block();
-        return just(secondPolicyResultProcessorEvent);
+        return just(initialEvent).transform((ReactiveProcessor) policyFactoryInvocation.getArguments()[1]);
+        // just(initialEvent).transform((ReactiveProcessor) policyFactoryInvocation.getArguments()[1]).block();
+        // return just(secondPolicyResultProcessorEvent);
       });
       return secondPolicyOperationPolicyProcessor;
     });
@@ -99,7 +102,7 @@ public class CompositeOperationPolicyTestCase extends AbstractMuleTestCase {
                                                             operationPolicyParametersTransformer, operationPolicyProcessorFactory,
                                                             operationParametersProcessor, operationExecutionFunction);
 
-    CoreEvent result = from(compositeOperationPolicy.process(initialEvent, operationParametersProcessor))
+    CoreEvent result = from(compositeOperationPolicy.process(initialEvent))
         .doOnNext(event1 -> System.out.println("FINAL " + event1.getMessage().getPayload().getValue())).block();
 
     assertThat(result.getMessage(), is(nextProcessResultEvent.getMessage()));
@@ -114,7 +117,7 @@ public class CompositeOperationPolicyTestCase extends AbstractMuleTestCase {
                                                             operationPolicyParametersTransformer, operationPolicyProcessorFactory,
                                                             operationParametersProcessor, operationExecutionFunction);
 
-    CoreEvent result = from(compositeOperationPolicy.process(initialEvent, operationParametersProcessor)).block();
+    CoreEvent result = from(compositeOperationPolicy.process(initialEvent)).block();
     assertThat(result.getMessage(), is(nextProcessResultEvent.getMessage()));
     verify(operationExecutionFunction).execute(any(), any());
     verify(operationPolicyProcessorFactory).createOperationPolicy(same(firstPolicy), any());
@@ -143,7 +146,7 @@ public class CompositeOperationPolicyTestCase extends AbstractMuleTestCase {
     expectedException.expect(MuleException.class);
     expectedException.expectCause(is(policyException));
     try {
-      from(compositeOperationPolicy.process(initialEvent, operationParametersProcessor)).block();
+      from(compositeOperationPolicy.process(initialEvent)).block();
     } catch (Throwable throwable) {
       throw rxExceptionToMuleException(throwable);
     }
@@ -159,7 +162,7 @@ public class CompositeOperationPolicyTestCase extends AbstractMuleTestCase {
     expectedException.expect(MuleException.class);
     expectedException.expectCause(is(policyException));
     try {
-      from(compositeOperationPolicy.process(initialEvent, operationParametersProcessor)).block();
+      from(compositeOperationPolicy.process(initialEvent)).block();
     } catch (Throwable throwable) {
       throw rxExceptionToMuleException(throwable);
     }

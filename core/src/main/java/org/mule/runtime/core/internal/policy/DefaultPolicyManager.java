@@ -37,7 +37,6 @@ import org.mule.runtime.policy.api.PolicyPointcutParameters;
 import org.mule.runtime.policy.api.SourcePolicyPointcutParametersFactory;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -107,22 +106,22 @@ public class DefaultPolicyManager implements PolicyManager, Initialisable {
 
   @Override
   public OperationPolicy createOperationPolicy(Component operation, CoreEvent event,
-                                               Map<String, Object> operationParameters,
+                                               OperationParametersProcessor operationParameters,
                                                OperationExecutionFunction operationExecutionFunction) {
 
     PolicyPointcutParameters operationPointcutParameters =
-        policyPointcutParametersManager.createOperationPointcutParameters(operation, event, operationParameters);
+        policyPointcutParametersManager.createOperationPointcutParameters(operation, event,
+                                                                          operationParameters.getOperationParameters(event));
 
     List<Policy> parameterizedPolicies = policyProvider.findOperationParameterizedPolicies(operationPointcutParameters);
     if (parameterizedPolicies.isEmpty()) {
-      return (operationEvent, opParamProcessor) -> operationExecutionFunction
-          .execute(opParamProcessor.getOperationParameters(),
-                   operationEvent);
+      return operationEvent -> operationExecutionFunction
+          .execute(operationParameters.getOperationParameters(event), operationEvent);
     }
     return new CompositeOperationPolicy(parameterizedPolicies,
                                         lookupOperationParametersTransformer(operation.getLocation().getComponentIdentifier()
                                             .getIdentifier()),
-                                        operationPolicyProcessorFactory, () -> operationParameters, operationExecutionFunction);
+                                        operationPolicyProcessorFactory, operationParameters, operationExecutionFunction);
   }
 
   private Optional<OperationPolicyParametersTransformer> lookupOperationParametersTransformer(ComponentIdentifier componentIdentifier) {

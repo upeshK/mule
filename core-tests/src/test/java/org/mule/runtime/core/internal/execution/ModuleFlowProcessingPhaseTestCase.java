@@ -131,13 +131,8 @@ public class ModuleFlowProcessingPhaseTestCase extends AbstractMuleTestCase {
     failureResult = mock(SourcePolicyFailureResult.class);
     when(failureResult.getMessagingException()).then(invocation -> messagingException);
     when(failureResult.getErrorResponseParameters()).thenReturn(() -> emptyMap());
-<<<<<<< Upstream, based on origin/mule-4.x
-    when(sourcePolicy.process(any(), any(), any())).thenAnswer(invocation -> {
-      event = invocation.getArgument(0);
-=======
     when(sourcePolicy.process(any(), any())).thenAnswer(invocation -> {
-      event = invocation.getArgumentAt(0, CoreEvent.class);
->>>>>>> 5e63aa2 trying to remove the parameters from the state of the policies...
+      event = invocation.getArgument(0);
       return just(right(successResult));
     });
 
@@ -409,13 +404,8 @@ public class ModuleFlowProcessingPhaseTestCase extends AbstractMuleTestCase {
   }
 
   private void configureThrowingFlow(RuntimeException failure, boolean inErrorHandler) {
-<<<<<<< Upstream, based on origin/mule-4.x
-    when(sourcePolicy.process(any(), any(), any())).thenAnswer(invocation -> {
-      messagingException = buildFailingFlowException(invocation.getArgument(0), failure);
-=======
     when(sourcePolicy.process(any(), any())).thenAnswer(invocation -> {
-      messagingException = buildFailingFlowException(invocation.getArgumentAt(0, CoreEvent.class), failure);
->>>>>>> 5e63aa2 trying to remove the parameters from the state of the policies...
+      messagingException = buildFailingFlowException(invocation.getArgument(0), failure);
       messagingException.setInErrorHandler(inErrorHandler);
       return just(left(failureResult));
     });

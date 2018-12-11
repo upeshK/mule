@@ -51,7 +51,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
     this.parameterizedPolicies = policies;
     this.parametersTransformer = parametersTransformer;
     this.parametersProcessor = parametersProcessor;
-    this.executionProcessor = getPolicyProcessor(parametersProcessor, executionProcessor);
+    this.executionProcessor = getPolicyProcessor(executionProcessor);
   }
 
   /**
@@ -64,15 +64,14 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * in the chain until the finally policy it's executed in which case then next operation of it, it will be the operation
    * execution.
    */
-  private final ReactiveProcessor getPolicyProcessor(ParametersProcessor parametersProcessor, Subject executionProcessor) {
+  private final ReactiveProcessor getPolicyProcessor(Subject executionProcessor) {
     List<Function<ReactiveProcessor, ReactiveProcessor>> interceptors = new ArrayList<>();
 
     for (Policy policy : parameterizedPolicies) {
       interceptors.add(next -> eventPub -> processPolicy(policy, next, eventPub));
     }
 
-    ReactiveProcessor chainedPoliciesAndOperation =
-        eventPub -> processNextOperation(eventPub, parametersProcessor, executionProcessor);
+    ReactiveProcessor chainedPoliciesAndOperation = eventPub -> processNextOperation(eventPub, executionProcessor);
     // Take processor publisher function itself and transform it by applying interceptor transformations onto it.
     reverse(interceptors);
     for (Function<ReactiveProcessor, ReactiveProcessor> interceptor : interceptors) {
@@ -103,9 +102,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * @return the event to use for processing the after phase of the policy
    * @throws MuleException if there's an error executing processing the next operation.
    */
-  protected abstract Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
-                                                               ParametersProcessor parametersProcessor,
-                                                               Subject flowExecutionProcessor);
+  protected abstract Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub, Subject flowExecutionProcessor);
 
   /**
    * Template method for executing a policy.

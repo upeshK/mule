@@ -70,13 +70,12 @@ public class CompositeOperationPolicy extends
    */
   @Override
   protected Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
-                                                      OperationParametersProcessor parametersProcessor,
                                                       OperationExecutionFunction operationExecutionFunction) {
     return from(eventPub)
         .flatMap(event -> {
           Map<String, Object> parametersMap = new HashMap<>();
           try {
-            parametersMap.putAll(parametersProcessor.getOperationParameters());
+            parametersMap.putAll(getParametersProcessor().getOperationParameters(event));
           } catch (Exception e) {
             return error(e);
           }
@@ -86,7 +85,9 @@ public class CompositeOperationPolicy extends
 
           return from(operationExecutionFunction.execute(parametersMap, event));
         })
-        .doOnNext(response -> this.nextOperationResponse = response)
+        // .map(response -> new OperationPolicyResponseEvent(response))
+        // .cast(CoreEvent.class)
+//        .doOnNext(response -> this.nextOperationResponse = response)
         .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
   }
 
@@ -100,27 +101,48 @@ public class CompositeOperationPolicy extends
    */
   @Override
   protected Publisher<CoreEvent> processPolicy(Policy policy, ReactiveProcessor nextProcessor, Publisher<CoreEvent> eventPub) {
-    return from(eventPub)
-        .doOnNext(response -> this.nextOperationResponse = response)
-        .transform(operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor))
-        .map(policyResponse -> {
+    if (policy.getPolicyChain().isPropagateMessageTransformations()) {
+      return from(eventPub)
+          // .doOnNext(response -> this.nextOperationResponse = response)
+          .transform(operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor))
+          // .map(response -> new OperationPolicyResponseEvent(response instanceof OperationPolicyResponseEvent
+          // ? response.getActualResponse()
+          // : response))
+          // .cast(CoreEvent.class)
+          .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
+    } else {
+      return from(eventPub)
+          // .doOnNext(response -> this.nextOperationResponse = response)
 
-          if (policy.getPolicyChain().isPropagateMessageTransformations()) {
-            nextOperationResponse = policyResponse;
-            return policyResponse;
-          }
+          .transform(operationPolicyProcessorFactory.createOperationPolicy(policy, nextProcessor))
+          // .map(response -> {
+          // if (response instanceof OperationPolicyResponseEvent) {
+          // return new OperationPolicyResponseEvent(response.getActualResponse());
+          // } else {
+          // return response;
+          // }
+          // })
+          // .map(policyResponse -> {
+          //
+          // if (policy.getPolicyChain().isPropagateMessageTransformations()) {
+          // nextOperationResponse = policyResponse;
+          // return policyResponse;
+          // }
+          //
+          // return nextOperationResponse;
+          // })
+          .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
 
-          return nextOperationResponse;
-        })
-        .onErrorMap(throwable -> !(throwable instanceof MuleException), throwable -> new DefaultMuleException(throwable));
+    }
   }
 
   @Override
-  public Publisher<CoreEvent> process(CoreEvent operationEvent, OperationParametersProcessor parametersProcessor) {
+  public Publisher<CoreEvent> process(CoreEvent operationEvent) {
     try {
       if (getParametersTransformer().isPresent()) {
         return processWithChildContext(CoreEvent.builder(operationEvent)
-            .message(getParametersTransformer().get().fromParametersToMessage(parametersProcessor.getOperationParameters()))
+            .message(getParametersTransformer().get()
+                .fromParametersToMessage(getParametersProcessor().getOperationParameters(operationEvent)))
             .build(), getExecutionProcessor(), empty());
       } else {
         return processWithChildContext(operationEvent, getExecutionProcessor(), empty());

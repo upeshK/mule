@@ -88,14 +88,12 @@ public class CompositeSourcePolicy extends
    * {@link MessagingException} to signal that the failure was through the the flow exception and not the policy logic.
    */
   @Override
-  protected Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub,
-                                                      MessageSourceResponseParametersProcessor parametersProcessor,
-                                                      Processor flowExecutionProcessor) {
+  protected Publisher<CoreEvent> processNextOperation(Publisher<CoreEvent> eventPub, Processor flowExecutionProcessor) {
     return from(eventPub)
         .flatMap(event -> from(flowExecutionProcessor.apply(just(event)))
             .map(flowExecutionResponse -> {
               originalResponseParameters =
-                  parametersProcessor.getSuccessfulExecutionResponseParametersFunction().apply(flowExecutionResponse);
+                  getParametersProcessor().getSuccessfulExecutionResponseParametersFunction().apply(flowExecutionResponse);
               Message message = getParametersTransformer()
                   .map(parametersTransformer -> parametersTransformer
                       .fromSuccessResponseParametersToMessage(originalResponseParameters))
@@ -104,7 +102,7 @@ public class CompositeSourcePolicy extends
             }))
         .onErrorMap(MessagingException.class, messagingException -> {
           originalFailureResponseParameters =
-              parametersProcessor.getFailedExecutionResponseParametersFunction().apply(messagingException.getEvent());
+              getParametersProcessor().getFailedExecutionResponseParametersFunction().apply(messagingException.getEvent());
           Message message = getParametersTransformer()
               .map(parametersTransformer -> parametersTransformer
                   .fromFailureResponseParametersToMessage(originalFailureResponseParameters))
@@ -162,7 +160,13 @@ public class CompositeSourcePolicy extends
               .orElse(originalResponseParameters);
           return right(new SourcePolicySuccessResult(policiesResultEvent, responseParameters,
                                                      messageSourceResponseParametersProcessor));
-        }).doOnNext(result -> logSourcePolicySuccessfullResult(result.getRight()))
+        })
+        .doOnNext(result -> logSourcePolicySuccessfullResult(result.getRight()))
+
+        .doOnError(e -> {
+          e.printStackTrace();
+        })
+
 
         .doOnError(e -> !(e instanceof FlowExecutionException || e instanceof MessagingException),
                    e -> LOGGER.error(e.getMessage(), e))

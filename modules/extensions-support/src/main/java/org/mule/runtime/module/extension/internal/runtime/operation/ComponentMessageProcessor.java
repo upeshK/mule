@@ -177,18 +177,7 @@ public abstract class ComponentMessageProcessor<T extends ComponentModel> extend
   public Publisher<CoreEvent> apply(Publisher<CoreEvent> publisher) {
     return from(publisher)
         .flatMap(checkedFunction(event -> {
-          Optional<ConfigurationInstance> configuration;
-
-          if (getLocation() != null
-              && ((InternalEvent) event).getInternalParameters().containsKey(INTERCEPTION_RESOLVED_CONTEXT)) {
-            // If the event already contains an execution context, use that one.
-            // Only for interceptable components!
-            ExecutionContextAdapter<T> operationContext = getPrecalculatedContext(event);
-            configuration = operationContext.getConfiguration();
-          } else {
-            // Otherwise, generate the context as usual.
-            configuration = getConfiguration(event);
-          }
+          Optional<ConfigurationInstance> configuration = resolveConfig(event);
 
           Context ctx = subscriberContext().block();
 
@@ -217,12 +206,16 @@ public abstract class ComponentMessageProcessor<T extends ComponentModel> extend
           }
 
           if (getLocation() != null) {
-            final Map<String, Object> resolutionResult = getResolutionResult(event, configuration);
-
             ((DefaultFlowCallStack) event.getFlowCallStack()).setCurrentProcessorPath(resolvedProcessorRepresentation);
             return policyManager
-                .createOperationPolicy(this, event, resolutionResult, operationExecutionFunction)
-                .process(event, () -> resolutionResult);
+                .createOperationPolicy(this, event, ev -> {
+                  try {
+                    return getResolutionResult(ev, resolveConfig(ev));
+                  } catch (MuleException e) {
+                    throw new MuleRuntimeException(e);
+                  }
+                }, operationExecutionFunction)
+                .process(event);
           } else {
             final Map<String, Object> resolutionResult = getResolutionResult(event, configuration);
 
@@ -230,6 +223,22 @@ public abstract class ComponentMessageProcessor<T extends ComponentModel> extend
             return operationExecutionFunction.execute(resolutionResult, event);
           }
         }));
+  }
+
+  private Optional<ConfigurationInstance> resolveConfig(CoreEvent event) {
+    Optional<ConfigurationInstance> configuration;
+
+    if (getLocation() != null
+        && ((InternalEvent) event).getInternalParameters().containsKey(INTERCEPTION_RESOLVED_CONTEXT)) {
+      // If the event already contains an execution context, use that one.
+      // Only for interceptable components!
+      ExecutionContextAdapter<T> operationContext = getPrecalculatedContext(event);
+      configuration = operationContext.getConfiguration();
+    } else {
+      // Otherwise, generate the context as usual.
+      configuration = getConfiguration(event);
+    }
+    return configuration;
   }
 
   /**

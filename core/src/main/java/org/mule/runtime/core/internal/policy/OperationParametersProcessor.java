@@ -16,6 +16,7 @@ import java.util.Map;
  *
  * @since 4.0
  */
+@FunctionalInterface
 public interface OperationParametersProcessor {
 
   /**
@@ -23,6 +24,6 @@ public interface OperationParametersProcessor {
    *
    * @return the operation parameters as map
    */
-  Map<String, Object> getOperationParameters();
+  Map<String, Object> getOperationParameters(CoreEvent event);
 
 }
