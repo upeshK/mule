@@ -190,8 +190,6 @@ public abstract class ComponentMessageProcessor<T extends ComponentModel> extend
             configuration = getConfiguration(event);
           }
 
-          final Map<String, Object> resolutionResult = getResolutionResult(event, configuration);
-
           Context ctx = subscriberContext().block();
 
           OperationExecutionFunction operationExecutionFunction;
@@ -219,11 +217,15 @@ public abstract class ComponentMessageProcessor<T extends ComponentModel> extend
           }
 
           if (getLocation() != null) {
+            final Map<String, Object> resolutionResult = getResolutionResult(event, configuration);
+
             ((DefaultFlowCallStack) event.getFlowCallStack()).setCurrentProcessorPath(resolvedProcessorRepresentation);
             return policyManager
                 .createOperationPolicy(this, event, resolutionResult, operationExecutionFunction)
                 .process(event, () -> resolutionResult);
           } else {
+            final Map<String, Object> resolutionResult = getResolutionResult(event, configuration);
+
             // If this operation has no component location then it is internal. Don't apply policies on internal operations.
             return operationExecutionFunction.execute(resolutionResult, event);
           }

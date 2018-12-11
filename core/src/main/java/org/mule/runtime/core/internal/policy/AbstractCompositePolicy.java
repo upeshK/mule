@@ -51,7 +51,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
     this.parameterizedPolicies = policies;
     this.parametersTransformer = parametersTransformer;
     this.parametersProcessor = parametersProcessor;
-    this.executionProcessor = getPolicyProcessor(executionProcessor);
+    this.executionProcessor = getPolicyProcessor(parametersProcessor, executionProcessor);
   }
 
   /**
@@ -64,7 +64,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
    * in the chain until the finally policy it's executed in which case then next operation of it, it will be the operation
    * execution.
    */
-  private final ReactiveProcessor getPolicyProcessor(Subject executionProcessor) {
+  private final ReactiveProcessor getPolicyProcessor(ParametersProcessor parametersProcessor, Subject executionProcessor) {
     List<Function<ReactiveProcessor, ReactiveProcessor>> interceptors = new ArrayList<>();
 
     for (Policy policy : parameterizedPolicies) {
@@ -72,7 +72,7 @@ public abstract class AbstractCompositePolicy<ParametersTransformer, ParametersP
     }
 
     ReactiveProcessor chainedPoliciesAndOperation =
-        eventPub -> processNextOperation(eventPub, getParametersProcessor(), executionProcessor);
+        eventPub -> processNextOperation(eventPub, parametersProcessor, executionProcessor);
     // Take processor publisher function itself and transform it by applying interceptor transformations onto it.
     reverse(interceptors);
     for (Function<ReactiveProcessor, ReactiveProcessor> interceptor : interceptors) {

@@ -108,10 +108,10 @@ public class CompositeSourcePolicyTestCase extends AbstractMuleContextTestCase {
   public void singlePolicy() throws Exception {
     compositeSourcePolicy = new CompositeSourcePolicy(asList(firstPolicy),
                                                       sourcePolicyParametersTransformer, sourcePolicyProcessorFactory,
-                                                      sourceParametersProcessor);
+                                                      flowExecutionProcessor, sourceParametersProcessor);
 
     Either<SourcePolicyFailureResult, SourcePolicySuccessResult> sourcePolicyResult =
-        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor, flowExecutionProcessor)).block();
+        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor)).block();
     assertThat(sourcePolicyResult.isRight(), is(true));
     assertThat(sourcePolicyResult.getRight().getResult().getMessage(), is(firstPolicyResultEvent.getMessage()));
     verify(flowExecutionProcessor).apply(publisherArgumentCaptor.capture());
@@ -127,10 +127,10 @@ public class CompositeSourcePolicyTestCase extends AbstractMuleContextTestCase {
   public void compositePolicy() throws Exception {
     compositeSourcePolicy =
         new CompositeSourcePolicy(asList(firstPolicy, secondPolicy), sourcePolicyParametersTransformer,
-                                  sourcePolicyProcessorFactory, sourceParametersProcessor);
+                                  sourcePolicyProcessorFactory, flowExecutionProcessor, sourceParametersProcessor);
 
     Either<SourcePolicyFailureResult, SourcePolicySuccessResult> sourcePolicyResult =
-        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor, flowExecutionProcessor)).block();
+        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor)).block();
     assertThat(sourcePolicyResult.isRight(), is(true));
     assertThat(sourcePolicyResult.getRight().getResult().getMessage(), is(firstPolicyResultEvent.getMessage()));
     verify(flowExecutionProcessor).apply(publisherArgumentCaptor.capture());
@@ -150,7 +150,7 @@ public class CompositeSourcePolicyTestCase extends AbstractMuleContextTestCase {
   public void emptyPolicyList() throws Exception {
     compositeSourcePolicy = new CompositeSourcePolicy(emptyList(),
                                                       sourcePolicyParametersTransformer, sourcePolicyProcessorFactory,
-                                                      sourceParametersProcessor);
+                                                      flowExecutionProcessor, sourceParametersProcessor);
   }
 
   @Test
@@ -163,10 +163,10 @@ public class CompositeSourcePolicyTestCase extends AbstractMuleContextTestCase {
 
     compositeSourcePolicy = new CompositeSourcePolicy(asList(firstPolicy, secondPolicy), sourcePolicyParametersTransformer,
                                                       sourcePolicyProcessorFactory,
-                                                      sourceParametersProcessor);
+                                                      flowExecutionProcessor, sourceParametersProcessor);
 
     Either<SourcePolicyFailureResult, SourcePolicySuccessResult> sourcePolicyResult =
-        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor, flowExecutionProcessor)).block();
+        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor)).block();
     assertThat(sourcePolicyResult.isLeft(), is(true));
     assertThat(sourcePolicyResult.getLeft().getMessagingException().getCause().getCause(), is(policyException));
   }
@@ -183,10 +183,10 @@ public class CompositeSourcePolicyTestCase extends AbstractMuleContextTestCase {
     });
     compositeSourcePolicy = new CompositeSourcePolicy(asList(firstPolicy, secondPolicy), sourcePolicyParametersTransformer,
                                                       sourcePolicyProcessorFactory,
-                                                      sourceParametersProcessor);
+                                                      flowExecutionProcessor, sourceParametersProcessor);
 
     Either<SourcePolicyFailureResult, SourcePolicySuccessResult> sourcePolicyResult =
-        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor, flowExecutionProcessor)).block();
+        from(compositeSourcePolicy.process(initialEvent, sourceParametersProcessor)).block();
     assertThat(sourcePolicyResult.isLeft(), is(true));
     assertThat(sourcePolicyResult.getLeft().getMessagingException().getCause().getCause(), is(policyException));
   }

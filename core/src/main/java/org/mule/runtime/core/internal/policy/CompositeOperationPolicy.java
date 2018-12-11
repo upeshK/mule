@@ -76,7 +76,7 @@ public class CompositeOperationPolicy extends
         .flatMap(event -> {
           Map<String, Object> parametersMap = new HashMap<>();
           try {
-            parametersMap.putAll(getParametersProcessor().getOperationParameters());
+            parametersMap.putAll(parametersProcessor.getOperationParameters());
           } catch (Exception e) {
             return error(e);
           }
