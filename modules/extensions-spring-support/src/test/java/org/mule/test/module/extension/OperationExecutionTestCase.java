@@ -95,7 +95,13 @@ public class OperationExecutionTestCase extends AbstractExtensionFunctionalTestC
 
   @Override
   protected boolean isDisposeContextPerClass() {
-    return true;
+    return true;                                                             
+  }
+
+  @Test
+  public void operationWithInjectedObjectsFromRegistry() throws Exception {
+    Map<String, Object> result = (Map<String, Object>) runFlow("getInjectedObjects").getMessage().getPayload().getValue();
+    assertThat("", is(result.get("as")));
   }
 
   @Test

@@ -10,12 +10,14 @@ import static org.mule.runtime.extension.api.dsl.syntax.DslSyntaxUtils.supportsI
 import static org.mule.runtime.extension.api.dsl.syntax.DslSyntaxUtils.typeRequiresWrapperElement;
 import static org.mule.runtime.extension.api.loader.DeclarationEnricherPhase.POST_STRUCTURE;
 import static org.mule.runtime.extension.api.util.ExtensionMetadataTypeUtils.isMap;
+import org.mule.metadata.api.model.AnyType;
 import org.mule.metadata.api.model.ArrayType;
 import org.mule.metadata.api.model.MetadataType;
 import org.mule.metadata.api.model.ObjectType;
 import org.mule.metadata.api.model.StringType;
 import org.mule.metadata.api.model.UnionType;
 import org.mule.metadata.api.visitor.MetadataTypeVisitor;
+import org.mule.metadata.java.api.utils.JavaTypeUtils;
 import org.mule.runtime.api.meta.model.ParameterDslConfiguration;
 import org.mule.runtime.api.meta.model.declaration.fluent.ExtensionDeclaration;
 import org.mule.runtime.api.meta.model.declaration.fluent.ParameterDeclaration;
@@ -89,6 +91,17 @@ public class ParameterDslDeclarationEnricher implements DeclarationEnricher {
               builder.allowsInlineDefinition(dslConfiguration.allowsInlineDefinition() && (supportsInline || isWrapped))
                   .allowTopLevelDefinition(dslConfiguration.allowTopLevelDefinition())
                   .allowsReferences(dslConfiguration.allowsReferences());
+            }
+
+            @Override
+            public void visitAnyType(AnyType anyType) {
+              if (JavaTypeUtils.isReferableType(anyType)){
+                builder.allowsReferences(dslConfiguration.allowsReferences())
+                  .allowTopLevelDefinition(false)
+                  .allowsInlineDefinition(false);
+              } else {
+                defaultVisit(anyType);
+              }
             }
 
             @Override
